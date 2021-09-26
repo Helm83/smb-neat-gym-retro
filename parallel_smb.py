@@ -4,17 +4,7 @@ from smb_runner import Runner
 from mvp_reporter import MvpReporter
 
 
-# class Worker(object):
-#     def __init__(self, genome, config):
-#         self.genome = genome
-#         self.config = config
-#
-#     def work(self):
-#         net = neat.nn.RecurrentNetwork.create(self.genome, self.config)
-#         runner = Runner()
-#         self.genome.fitness = runner.run(net.activate)
-
-
+# TODO: add Checkpoints and MVPReporter as arguments instead of (un)commenting them
 def eval_genomes(genome, config):
     net = neat.nn.RecurrentNetwork.create(genome, config)
     runner = Runner()
