@@ -24,7 +24,7 @@ def main():
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
     p.add_reporter(neat.Checkpointer(25, filename_prefix='neat-mario-cp-'))
-    # p.add_reporter(MvpReporter())
+    p.add_reporter(MvpReporter())
 
     pe = neat.ParallelEvaluator(6, eval_genomes)
 

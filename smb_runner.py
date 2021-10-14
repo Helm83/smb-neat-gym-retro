@@ -1,3 +1,4 @@
+import random
 import retro
 import cv2
 import numpy as np
@@ -31,9 +32,16 @@ class Runner:
     addr_player_state = int('0x000E', 16)
     render_ai_viewport = False
     render_env = False
+    stages = [
+        'Level1-1',
+        'Level2-1',
+        'Level3-1',
+        'Level4-1',
+    ]
 
     def __init__(self):
-        self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM)
+        stage = random.choices(self.stages, weights=(20, 1, 1, 1))
+        self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM, state=stage[0])
 
     def run(self, action_activation_function):
         obs = self.env.reset()
@@ -52,7 +60,6 @@ class Runner:
             inputs = self.generate_ai_viewport(obs)
 
             if self.render_env:
-                print(f"\rplayer_state={obs[self.addr_player_state]}", end='')
                 self.env.render()
 
             if self.render_ai_viewport:
