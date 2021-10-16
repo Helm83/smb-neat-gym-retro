@@ -8,7 +8,7 @@ class Runner:
     env = retro.RetroEnv
     # TODO: check if theres a better system to detect when a level is finished
     level_max_distances = {
-        '1_1': 3184
+        '1_1': 3175
     }
     addr_world = int('0x075F', 16)
     addr_level = int('0x0760', 16)
@@ -36,11 +36,10 @@ class Runner:
         'Level1-1',
         'Level2-1',
         'Level3-1',
-        'Level4-1',
     ]
 
     def __init__(self):
-        stage = random.choices(self.stages, weights=(20, 1, 1, 1))
+        stage = random.choices(self.stages, weights=(25, 1, 1))
         self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM, state=stage[0])
 
     def run(self, action_activation_function):
@@ -91,7 +90,7 @@ class Runner:
             xpos = int(obs[self.addr_curr_page]) * 256 + int(obs[self.addr_curr_x])
 
             if xpos > xpos_max:
-                if xpos >= 3184:
+                if xpos >= 3175 and self.env.statename == 'Level1-1':
                     fitness_max = 5000
                     done = True
                     continue
