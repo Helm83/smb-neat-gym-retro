@@ -6,27 +6,31 @@ from smb_runner import Runner
 from mvp_reporter import MvpReporter
 
 
-# TODO: add Checkpoints and MVPReporter as arguments instead of (un)commenting them
-def eval_genomes(genome, config):
-    net = neat.nn.RecurrentNetwork.create(genome, config)
-    runner = Runner()
-    return runner.run(net.activate)
+# TODO: join parallel_smb.py and single_worker_smb.py together,
+#  since number of workers can also be optional as single worker
+class ParallelRunner:
+    population = None
+
+    def eval_genomes(self, genome, config):
+        net = neat.nn.RecurrentNetwork.create(genome, config)
+        runner = Runner(generation=self.population.generation)
+        return runner.run(net.activate)
 
 
 def print_arg_help():
-    msg = (
+    print(
         'Usage: <parallel_smb.py>\n'
         '    -c, --checkpoint        Checkpoint file to load\n'
         '    -m                      Use MvpReporter to show the best genome of each generation\n'
         '    -w, --workers           Number of workers/threads to use for parallel execution'
     )
-    print(msg)
 
 
-def main():
-    arg_checkpoint = None
-    arg_mvp_reporter = False
-    arg_parallel_workers = 6
+def init_arguments():
+    # init argument defaults
+    checkpoint = None
+    mvp_reporter = False
+    workers = 6
     argv = sys.argv[1:]  # parsing the argument list
 
     try:
@@ -35,44 +39,54 @@ def main():
             if option[0] == '--checkpoint' or option[0] == '-c':
                 if option[1] == '':
                     raise GetoptError('empty --checkpoint option')
-                arg_checkpoint = option[1]
+                checkpoint = option[1]
             elif option[0] == '-m':
-                arg_mvp_reporter = True
+                mvp_reporter = True
             elif option[0] == '--workers' or option[0] == '-w':
                 try:
-                    arg_parallel_workers = int(option[1])
+                    workers = int(option[1])
                 except ValueError:
-                    print('-w option expects an integer')
-                    return
+                    raise GetoptError('option -w expects an integer')
             else:
                 print_arg_help()
+                sys.exit()
     except GetoptError as optError:
         print('Something went wrong while interpreting cli options: ' + optError.msg)
-        return
+        print_arg_help()
+        sys.exit()
 
-    if arg_mvp_reporter:
-        print('Using MvpReporter')
+    return checkpoint, mvp_reporter, workers
 
-    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                         'config-feedforward-smb')
+
+def main():
+    arg_checkpoint, arg_mvp_reporter, arg_parallel_workers = init_arguments()
+
+    config = neat.Config(
+        neat.DefaultGenome,
+        neat.DefaultReproduction,
+        neat.DefaultSpeciesSet,
+        neat.DefaultStagnation,
+        'config-feedforward-smb'
+    )
 
     if arg_checkpoint:
-        checkpoint = neat.Checkpointer.restore_checkpoint(arg_checkpoint)
-        p = neat.Population(config, (checkpoint.population, checkpoint.species, checkpoint.generation))
+        population = neat.Checkpointer.restore_checkpoint(arg_checkpoint)
+        # population = neat.Population(config, (checkpoint.population, checkpoint.species, checkpoint.generation))
     else:
-        p = neat.Population(config)
+        population = neat.Population(config)
 
-    p.add_reporter(neat.StdOutReporter(True))
-    p.add_reporter(neat.StatisticsReporter())
-    p.add_reporter(neat.Checkpointer(25, filename_prefix='neat-mario-cp-'))
+    population.add_reporter(neat.StdOutReporter(True))
+    population.add_reporter(neat.StatisticsReporter())
+    population.add_reporter(neat.Checkpointer(25, filename_prefix='neat-mario-cp-'))
 
     if arg_mvp_reporter:
-        p.add_reporter(MvpReporter())
+        population.add_reporter(MvpReporter())
 
-    pe = neat.ParallelEvaluator(arg_parallel_workers, eval_genomes)
+    runner = ParallelRunner()
+    runner.population = population
+    pe = neat.ParallelEvaluator(arg_parallel_workers, runner.eval_genomes)
 
-    winner = p.run(pe.evaluate)
+    winner = population.run(pe.evaluate)
 
     with open('winner.pkl', 'wb') as output:
         pickle.dump(winner, output, 1)

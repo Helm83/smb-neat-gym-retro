@@ -12,35 +12,33 @@ class Runner:
     }
     addr_world = int('0x075F', 16)
     addr_level = int('0x0760', 16)
-    # address of current tileset, containing 2 13*16 tilesets
-    addr_tiles = [int('0x0500', 16), int('0x069F', 16)]
-    # 1 if inside y-viewport, 0 if above, 2+ when falling down a pit
-    addr_player_viewport_ypos = int('0x00B5', 16)
-    # precise player y-position (0-255)
-    addr_player_screen_ypos = int('0x03B8', 16)
-    # player x-pos on screen
-    addr_curr_x = int('0x0086', 16)
-    # tileset containing the player
-    addr_curr_page = int('0x006D', 16)
-    # check if enemies are drawn, up to 5 at the same time
-    addr_enemies_drawn = int('0x000F', 16)
-    # enemy-positions
-    addr_enemy_xpos_level = int('0x006E', 16)
+    addr_tiles = [int('0x0500', 16), int('0x069F', 16)]  # address of current tileset, containing 2 13*16 tilesets
+    addr_player_viewport_ypos = int('0x00B5', 16)  # 1 if inside y-viewport, 0 if above, 2+ when falling down a pit
+    addr_player_screen_ypos = int('0x03B8', 16)  # precise player y-position (0-255)
+    addr_curr_x = int('0x0086', 16)  # player x-pos on screen
+    addr_curr_page = int('0x006D', 16)  # tileset containing the player
+    addr_enemies_drawn = int('0x000F', 16)  # check if enemies are drawn, up to 5 at the same time
+    addr_enemy_xpos_level = int('0x006E', 16)  # enemy-positions
     addr_enemy_xpos = int('0x0087', 16)
     addr_enemy_ypos = int('0x00CF', 16)
-    # player-state, 6 & 11 mean dying and dead
-    addr_player_state = int('0x000E', 16)
+    addr_player_state = int('0x000E', 16)  # player-state, 6 & 11 mean dying and dead
     render_ai_viewport = False
     render_env = False
     stages = [
         'Level1-1',
         'Level2-1',
         'Level3-1',
+        'Level4-1',
+        'Level5-1',
     ]
 
-    def __init__(self):
-        stage = random.choices(self.stages, weights=(25, 1, 1))
-        self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM, state=stage[0])
+    def __init__(self, generation=None, state=None):
+        if state is None:
+            if generation is not None:
+                state = random.choices(self.stages, weights=(max(generation, 1), 1, 1, 1, 1))[0]
+            else:
+                state = self.stages[0]
+        self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM, state=state)
 
     def run(self, action_activation_function):
         obs = self.env.reset()
@@ -50,6 +48,7 @@ class Runner:
         counter = 0
         xpos_max = 0
         done = False
+        frames = 0  # total time elapsed, measured in frames/iterations of the environment
 
         if self.render_ai_viewport:
             cv2.namedWindow("main", cv2.WINDOW_NORMAL)
@@ -77,12 +76,10 @@ class Runner:
                 cv2.waitKey(1)
 
             actions = action_activation_function(np.ndarray.flatten(inputs))
-            # actions = [(i > 0) * i for i in actions]
             # insert missing inputs
             actions[1:1] = [.0, .0, .0, .0, .0]
 
-            # Ich hab keine Ahnung wieso, aber mit dieser Änderung lernt die KI 1.000.000x schneller
-            # evtl. haben Tweaks in der NEAT-Config einen ähnlichen Effekt
+            # converting action-inputs to either 0 or 1, required for correct action handling
             actions = [int((i > .5)) for i in actions]
 
             obs, rew, done, info = self.env.step(actions)
@@ -91,11 +88,13 @@ class Runner:
 
             if xpos > xpos_max:
                 if xpos >= 3175 and self.env.statename == 'Level1-1':
-                    fitness_max = 5000
+                    fitness_max = 1000000 + fitness
                     done = True
                     continue
-                fitness = xpos
                 xpos_max = xpos
+
+            # fitness calculation
+            fitness = max(xpos ** 1.8 - frames ** 1.6 + min(max(xpos - 50, 0), 1) * 2500, 0.00001)
 
             if fitness > fitness_max:
                 fitness_max = fitness
@@ -106,6 +105,8 @@ class Runner:
             # check if player did not progress for 125 steps or died
             if obs[self.addr_player_state] in {6, 11} or counter > 125 or obs[self.addr_player_viewport_ypos] > 1:
                 done = True
+
+            frames += 1
 
         if self.render_env:
             self.env.render(close=True)
