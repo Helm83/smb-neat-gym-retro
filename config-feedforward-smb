@@ -45,7 +45,7 @@ node_delete_prob        = 0.5
 
 # network parameters
 num_hidden              = 0
-num_inputs              = 132
+num_inputs              = 133
 # normally, num_outputs for nes games would be 9 for every button
 # but some buttons aren't needed in SMB and are manually added as zeros
 num_outputs             = 4

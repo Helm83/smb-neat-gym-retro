@@ -35,7 +35,7 @@ class Runner:
     def __init__(self, generation=None, state=None):
         if state is None:
             if generation is not None:
-                state = random.choices(self.stages, weights=(max(generation, 1), 1, 1, 1, 1))[0]
+                state = random.choices(self.stages, weights=(max(max(generation // 5, 1), 50), 1, 1, 1, 1))[0]
             else:
                 state = self.stages[0]
         self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM, state=state)
@@ -75,7 +75,9 @@ class Runner:
                 cv2.imshow('main', img)
                 cv2.waitKey(1)
 
-            actions = action_activation_function(np.ndarray.flatten(inputs))
+            inputs = np.append(inputs, frames / 6000)  # add timer in form of frames / 6000 (100s*60fps)
+
+            actions = action_activation_function(inputs)
             # insert missing inputs
             actions[1:1] = [.0, .0, .0, .0, .0]
 
@@ -95,6 +97,7 @@ class Runner:
 
             # fitness calculation
             fitness = max(xpos ** 1.8 - frames ** 1.6 + min(max(xpos - 50, 0), 1) * 2500, 0.00001)
+            frames += 1
 
             if fitness > fitness_max:
                 fitness_max = fitness
@@ -102,11 +105,12 @@ class Runner:
             else:
                 counter += 1
 
-            # check if player did not progress for 125 steps or died
-            if obs[self.addr_player_state] in {6, 11} or counter > 125 or obs[self.addr_player_viewport_ypos] > 1:
+            # check if player did not progress for 120 frames, is alive for more than 6000 frames or is dying
+            if obs[self.addr_player_state] in {6, 11} or \
+                    counter > 120 or \
+                    obs[self.addr_player_viewport_ypos] > 1 or \
+                    frames > 6000:
                 done = True
-
-            frames += 1
 
         if self.render_env:
             self.env.render(close=True)
@@ -126,7 +130,6 @@ class Runner:
         tileset = np.array([obs[int(self.addr_tiles[0]): int(self.addr_tiles[1]) + 1]])
         tileset[tileset > 0] = 1
         tileset = np.reshape(
-            # [int((i > 1)) for i in obs[int(self.addr_tiles[0]): int(self.addr_tiles[1]) + 1]], (26, 16)
             tileset, (26, 16)
         )
         tile_screen = np.concatenate((tileset[:13], tileset[13:]), axis=1)
@@ -156,4 +159,4 @@ class Runner:
                 viewport[i][j] = row[col_left % 32]
                 col_left = col_left + 1
                 j = j + 1
-        return viewport
+        return viewport / 4

@@ -8,5 +8,5 @@ class MvpReporter(BaseReporter):
         net = RecurrentNetwork.create(best_genome, config)
         runner = Runner(state='Level1-1')
         runner.render_env = True
-        runner.render_ai_viewport = True
+        # runner.render_ai_viewport = True
         runner.run(net.activate)
