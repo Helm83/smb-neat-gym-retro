@@ -1,11 +1,11 @@
 import random
 import retro
+from retrowrapper import RetroWrapper
 import cv2
 import numpy as np
 
 
 class Runner:
-    env = retro.RetroEnv
     # TODO: check if theres a better system to detect when a level is finished
     level_max_distances = {
         '1_1': 3175
@@ -32,13 +32,22 @@ class Runner:
         'Level5-1',
     ]
 
-    def __init__(self, generation=None, state=None):
-        if state is None:
-            if generation is not None:
-                state = random.choices(self.stages, weights=(max(max(generation // 5, 1), 50), 1, 1, 1, 1))[0]
-            else:
-                state = self.stages[0]
-        self.env = retro.make(game='SuperMarioBros-Nes', obs_type=retro.Observations.RAM, state=state)
+    def __init__(self, generation=None):
+        if generation is None:
+            state = self.stages[0]
+        else:
+            state = self.get_random_state(generation)
+        self.env = RetroWrapper(
+            game='SuperMarioBros-Nes',
+            obs_type=retro.Observations.RAM,
+            state=state
+        )
+
+    def get_random_state(self, generation):
+        return random.choices(self.stages, weights=(max(max(generation // 5, 1), 75), 1, 1, 1, 1))[0]
+
+    def load_state(self, state):
+        self.env.load_state(state)
 
     def run(self, action_activation_function):
         obs = self.env.reset()
@@ -62,7 +71,7 @@ class Runner:
 
             if self.render_ai_viewport:
                 # render opencv grid
-                for i, row in enumerate(inputs):
+                for i, row in enumerate(inputs * 4):
                     for j, tile in enumerate(row):
                         end_x = int(j * 8 + 8)
                         end_y = int(i * 8 + 8)
@@ -84,7 +93,7 @@ class Runner:
             # converting action-inputs to either 0 or 1, required for correct action handling
             actions = [int((i > .5)) for i in actions]
 
-            obs, rew, done, info = self.env.step(actions)
+            obs, _, done, _ = self.env.step(actions)
 
             xpos = int(obs[self.addr_curr_page]) * 256 + int(obs[self.addr_curr_x])
 
@@ -126,15 +135,12 @@ class Runner:
         """
         Generates the input viewport for the ai calculated from the RAM-observation-space
         """
-        viewport = np.ndarray((12, 11))
-        tileset = np.array([obs[int(self.addr_tiles[0]): int(self.addr_tiles[1]) + 1]])
-        tileset[tileset > 0] = 1
+        tileset = np.array(obs[int(self.addr_tiles[0]): int(self.addr_tiles[1]) + 1])
+        tileset[tileset > 0] = .25  # set all blocks to .25 and all empty spaces to 0
         tileset = np.reshape(
             tileset, (26, 16)
         )
         tile_screen = np.concatenate((tileset[:13], tileset[13:]), axis=1)
-        player_tile_xpos = int(obs[self.addr_curr_page] % 2) * 16 + int(obs[self.addr_curr_x]) // 16
-        player_tile_ypos = (int(obs[self.addr_player_screen_ypos]) - 1) // 16
 
         for i, enemy in enumerate(obs[self.addr_enemies_drawn:self.addr_enemies_drawn + 5]):
             # skip if not an enemy or enemy-y-position is greater than 13 tiles
@@ -144,19 +150,14 @@ class Runner:
                 (int(obs[self.addr_enemy_ypos + i])) // 16 - 1
             ][
                 int(obs[self.addr_enemy_xpos_level + i]) % 2 * 16 + int(obs[self.addr_enemy_xpos + i]) // 16
-            ] = 3
+            ] = .5  # enemies have the value .5
 
-        # fill ai_viewport
-        for i, row in enumerate(tile_screen):
-            if i == player_tile_ypos:
-                # TODO: check how player-position in new grid should be calculated
-                row[player_tile_xpos] = 2
-            if i == 12:
-                continue
-            col_left = player_tile_xpos - 2
-            j = 0
-            while col_left < 11 + player_tile_xpos - 2:
-                viewport[i][j] = row[col_left % 32]
-                col_left = col_left + 1
-                j = j + 1
-        return viewport / 4
+        player_tile_xpos = int(obs[self.addr_curr_page] % 2) * 16 + int(obs[self.addr_curr_x]) // 16
+        player_tile_ypos = (int(obs[self.addr_player_screen_ypos]) - 1) // 16
+        try:
+            tile_screen[player_tile_ypos][player_tile_xpos] = 1  # mario gets value 1
+        except IndexError:
+            pass  # not a good way to handle IndexErrors, better to use LBYL, I know...
+
+        viewport = np.roll(tile_screen[:12], (player_tile_xpos - 2) % 32 * -1, axis=1)[:, :11]
+        return viewport
