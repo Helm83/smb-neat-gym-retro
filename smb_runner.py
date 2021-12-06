@@ -1,6 +1,5 @@
 import random
 import retro
-from retrowrapper import RetroWrapper
 import cv2
 import numpy as np
 
@@ -37,7 +36,7 @@ class Runner:
             state = self.stages[0]
         else:
             state = self.get_random_state(generation)
-        self.env = RetroWrapper(
+        self.env = retro.make(
             game='SuperMarioBros-Nes',
             obs_type=retro.Observations.RAM,
             state=state

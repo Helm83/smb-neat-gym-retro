@@ -51,14 +51,14 @@ def main():
         neat.DefaultReproduction,
         neat.DefaultSpeciesSet,
         neat.DefaultStagnation,
-        'config-feedforward-smb'
+        'config/config-feedforward-smb'
     )
 
     with open(arg_replay_file, 'rb') as input_file:
         genome = pickle.load(input_file)
 
     net = neat.nn.RecurrentNetwork.create(genome, config)
-    runner = Runner(state=arg_state)
+    runner = Runner()
     runner.render_env = True
     runner.run(net.activate)
 

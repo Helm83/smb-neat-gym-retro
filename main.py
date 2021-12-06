@@ -3,20 +3,16 @@ import pickle
 import sys
 from getopt import getopt, GetoptError
 from smb_runner import Runner
-from mvp_reporter import MvpReporter
-from performance_reporter import PerformanceReporter
+from reporters.mvp_reporter import MvpReporter
+from reporters.performance_reporter import PerformanceReporter
 
 
 class NeatRunner:
     population = None
-    workers = 1
-    runners = []
 
     def eval_genomes_parallel(self, genome, config):
-        if len(self.runners) < self.workers:
-            self.runners.append(Runner(generation=self.population.generation))
-        runner = self.runners[len(self.runners) - 1]
         net = neat.nn.RecurrentNetwork.create(genome, config)
+        runner = Runner(generation=self.population.generation)
         return runner.run(net.activate)
 
     def eval_genomes_single(self, genomes, config):
@@ -80,7 +76,7 @@ def main():
         neat.DefaultReproduction,
         neat.DefaultSpeciesSet,
         neat.DefaultStagnation,
-        'config-feedforward-smb'
+        'config/config-feedforward-smb'
     )
 
     if arg_checkpoint:
@@ -91,7 +87,7 @@ def main():
 
     population.add_reporter(neat.StdOutReporter(True))
     population.add_reporter(neat.StatisticsReporter())
-    population.add_reporter(neat.Checkpointer(25, filename_prefix='neat-mario-cp-'))
+    population.add_reporter(neat.Checkpointer(25, filename_prefix='checkpoints/neat-mario-cp-'))
 
     if arg_mvp_reporter:
         population.add_reporter(MvpReporter())
