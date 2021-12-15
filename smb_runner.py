@@ -77,7 +77,7 @@ class Runner:
                         color = (0, 0, int(tile) * 255)
                         if tile == 2:
                             color = (0, 255, 0)
-                        if tile == 3:
+                        if tile == 4:
                             color = (255, 0, 0)
                         cv2.rectangle(img, (int(j * 8), int(i * 8)), (end_x, end_y), color, -1)
                 cv2.imshow('main', img)
@@ -134,7 +134,7 @@ class Runner:
         """
         Generates the input viewport for the ai calculated from the RAM-observation-space
         """
-        tileset = np.array(obs[int(self.addr_tiles[0]): int(self.addr_tiles[1]) + 1])
+        tileset = np.array(obs[int(self.addr_tiles[0]): int(self.addr_tiles[1]) + 1], dtype='f4')
         tileset[tileset > 0] = .25  # set all blocks to .25 and all empty spaces to 0
         tileset = np.reshape(
             tileset, (26, 16)
